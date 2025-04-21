@@ -1,10 +1,10 @@
 // Dans routes/users.js
 const router = require('express').Router();
-const User = require('../models/users');  // Notez l'utilisation de 'users' et non 'User'
+const User = require('../models/users'); 
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const fs = require('fs');
-// Middleware d'authentification (vous pouvez réutiliser celui de caches.js)
+// Middleware d'authentification 
 const auth = (req, res, next) => {
   const token = req.header('Authorization')?.replace('Bearer ', '');
   if (!token) return res.status(401).json({ message: 'Accès refusé' });
@@ -39,7 +39,7 @@ router.get('/ranking', auth, async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
-// routes/users.js
+
 router.post('/avatar', auth, upload.single('avatar'), async (req, res) => {
   try {
     if (!req.file) {
@@ -59,6 +59,21 @@ router.post('/avatar', auth, upload.single('avatar'), async (req, res) => {
     fs.unlinkSync(req.file.path);
     
     res.json({ message: 'Avatar mis à jour avec succès' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+// Route pour récupérer l'avatar d'un utilisateur
+router.get('/avatar/:userId', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId);
+    
+    if (!user || !user.avatar || !user.avatar.data) {
+      return res.status(404).send('Avatar non trouvé');
+    }
+    
+    res.set('Content-Type', user.avatar.contentType);
+    res.send(user.avatar.data);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

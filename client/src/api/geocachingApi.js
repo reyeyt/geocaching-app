@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://172.21.58.106:3000/api';
+export const API_URL = 'http://172.21.58.106:3000/api';
 
 // Fonction pour gérer les erreurs de manière uniforme
 const handleApiError = (error) => {
@@ -316,6 +316,41 @@ export const getCacheComments = async (token, cacheId) => {
     return response.data;
   } catch (error) {
     console.error(`❌ Échec de récupération des commentaires pour la cache ${cacheId}:`, error);
+    return handleApiError(error);
+  }
+};
+export const uploadAvatar = async (token, imageData) => {
+  console.log('📝 Téléchargement de l\'avatar');
+  
+  try {
+    const formData = new FormData();
+    
+    // Ajouter l'image à FormData
+    const filename = imageData.uri.split('/').pop();
+    const match = /\.(\w+)$/.exec(filename);
+    const type = match ? `image/${match[1]}` : 'image/jpeg';
+    
+    formData.append('avatar', {
+      uri: imageData.uri,
+      name: filename,
+      type
+    });
+    
+    const response = await axios.post(
+      `${API_URL}/users/avatar`,
+      formData,
+      {
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      }
+    );
+    
+    console.log('✅ Avatar mis à jour:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Échec de mise à jour de l\'avatar:', error);
     return handleApiError(error);
   }
 };

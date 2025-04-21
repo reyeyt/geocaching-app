@@ -19,8 +19,10 @@ import {
   getUserRanking,
   getPopularCaches,
   getRarelyCaches,
-  getCacheComments
+  getCacheComments,
+  API_URL 
 } from '../src/api/geocachingApi';
+
 
 export default function App() {
   // États pour l'écran de connexion
@@ -527,7 +529,7 @@ const handleLogin = async () => {
             `;
           }).join('')}
           
-          // Fonction pour marquer une cache comme trouvée
+          
          // Fonction pour marquer une cache comme trouvée
           function markCacheAsFound(cacheId) {
             // Afficher une alerte simple avant le prompt
@@ -546,7 +548,6 @@ const handleLogin = async () => {
           
           // Fonction pour modifier une cache
           function editCache(cacheId) {
-            console.log('Édition de la cache:', cacheId);
             window.ReactNativeWebView.postMessage(JSON.stringify({
               type: 'EDIT_CACHE',
               cacheId: cacheId
@@ -625,16 +626,33 @@ const handleLogin = async () => {
   const renderProfileScreen = () => (
     <View style={styles.container}>
       <Text style={styles.title}>Profil</Text>
+      
+      <TouchableOpacity style={styles.avatarContainer} onPress={handlePickAvatar}>
+  {userData?.avatar ? (
+    <Image 
+      source={{ uri: `http://172.21.58.106:3000/api/users/avatar/${userData._id}?t=${new Date().getTime()}` }} 
+      style={styles.profileAvatar} 
+    />
+  ) : (
+    <View style={styles.profileAvatarPlaceholder}>
+      <Text style={styles.profileAvatarInitial}>
+        {userData?.email?.charAt(0).toUpperCase() || "?"}
+      </Text>
+    </View>
+  )}
+  <Text style={styles.changePhotoText}>Changer la photo</Text>
+</TouchableOpacity>
+      
       <Text style={styles.emailText}>{userData?.email}</Text>
       
       <TouchableOpacity style={styles.button} onPress={loadRankings}>
         <Text style={styles.buttonText}>Voir les classements</Text>
       </TouchableOpacity>
-
+  
       <TouchableOpacity style={styles.button} onPress={() => setMapVisible(true)}>
         <Text style={styles.buttonText}>Revenir à la carte</Text>
       </TouchableOpacity>
-
+  
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
         <Text style={styles.buttonText}>Déconnexion</Text>
       </TouchableOpacity>
@@ -820,6 +838,74 @@ const pickImage = async () => {
   } catch (error) {
     console.error("Erreur lors de la sélection d'une image:", error);
     Alert.alert("Erreur", "Impossible de sélectionner l'image");
+  }
+};
+
+const handlePickAvatar = async () => {
+  try {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    
+    if (status !== 'granted') {
+      Alert.alert('Permission requise', 'Nous avons besoin de votre permission pour accéder à la galerie');
+      return;
+    }
+    
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    
+    if (!result.canceled && result.assets && result.assets[0]) {
+      setIsLoading(true);
+      try {
+        // Utiliser directement l'URL complète au lieu de API_URL
+        const apiUrl = 'http://172.21.58.106:3000/api';
+        
+        // Créer un FormData
+        const formData = new FormData();
+        const uri = result.assets[0].uri;
+        const filename = uri.split('/').pop();
+        const match = /\.(\w+)$/.exec(filename);
+        const type = match ? `image/${match[1]}` : 'image/jpeg';
+        
+        formData.append('avatar', {
+          uri: uri,
+          name: filename,
+          type: type
+        });
+        
+        // Envoyer la requête
+        const response = await fetch(`${apiUrl}/users/avatar`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${userToken}`,
+            'Content-Type': 'multipart/form-data'
+          },
+          body: formData
+        });
+        
+        if (!response.ok) {
+          throw new Error('Erreur lors du téléchargement de l\'avatar');
+        }
+        
+        // Mettre à jour les données utilisateur
+        const updatedUserData = { ...userData, avatar: { exists: true } };
+        setUserData(updatedUserData);
+        await AsyncStorage.setItem('userData', JSON.stringify(updatedUserData));
+        
+        Alert.alert('Succès', 'Avatar mis à jour avec succès');
+      } catch (error) {
+        console.error('Erreur:', error);
+        Alert.alert('Erreur', error.message || 'Impossible de mettre à jour l\'avatar');
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  } catch (error) {
+    console.error('Erreur lors de la sélection d\'image:', error);
+    Alert.alert('Erreur', 'Impossible de sélectionner l\'image');
   }
 };
   
@@ -1134,24 +1220,32 @@ const styles = StyleSheet.create({
     height: 200,
     borderRadius: 10,
   },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 10,
+  avatarContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
   },
-  avatarPlaceholder: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  profileAvatar: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    marginBottom: 10,
+  },
+  profileAvatarPlaceholder: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     backgroundColor: '#ddd',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
+    marginBottom: 10,
   },
-  avatarInitial: {
-    fontSize: 18,
+  profileAvatarInitial: {
+    fontSize: 60,
     fontWeight: 'bold',
     color: '#666',
+  },
+  changePhotoText: {
+    color: '#4CAF50',
+    fontSize: 16,
   },
 });
